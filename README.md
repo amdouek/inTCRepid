@@ -17,15 +17,20 @@ TCR CDR3 sequences. It uses data from
 [VDJdb](https://github.com/antigenomics/vdjdb-db) ([Goncharov et
 al. 2022, *Nat Methods*](https://doi.org/10.1038/s41592-022-01578-0))
 and [IEDB](https://www.iedb.org/) ([Vita et al. 2024, *Nucleic Acids
-Research*](https://doi.org/10.1093/nar/gkae1092)) for testing, training,
-and validation.
+Research*](https://doi.org/10.1093/nar/gkae1092)) and
+[McPAS-TCR](https://friedmanlab.weizmann.ac.il/McPAS-TCR/) ([Tickotsky
+et al. 2017.
+*Bioinformatics*](https://academic.oup.com/bioinformatics/article/33/18/2924/3803440))
+for testing, training, and validation.
 
 **PLEASE NOTE:** This is a <u>curiosity-first pet project and a learning
 exercise</u>, and *definitely* shouldn’t be taken seriously as a
 reliable inference model for epitope prediction. This is a major, active
 field of study in immunoinformatics, and far more advanced and better
-tools exist. If you are looking to perform real predictive analyses for
-TCRs and/or epitopes, you may wish to consider any of the following
+tools exist.
+
+If you are looking to perform real predictive analyses for TCRs and/or
+epitopes, you may wish to consider any of the following
 **non-exhaustive** list of resources and tools:
 
 - [CATCR](https://doi.org/10.1093/bib/bbae210) - to predict TCR
@@ -58,23 +63,23 @@ biological ground truth without actual validation.
 
 inTCRepid uses a dual-encoder architecture with:
 
-- **CNN-based sequence encoders** with multi-scale convolutions (kernel
-  sizes 3, 5, and 7),
+- **Dual chain TCR encoding** (CDR3$\alpha$ + CDR3$\beta$) with V/J
+  germline gene embeddings;
 
-- **Attention-weighted pooling** for CDR3 sequences of variable length,
+- **CNN-based sequence encoders** with multi-scale convolutions (kernel
+  sizes 3, 5, and 7);
+
+- **Attention-weighted pooling** for variable-length CDR3 sequences;
+
+- **MHC class/allele** **integration** for epitope-MHC context;
 
 - **Contrastive learning** with cosine similarity and temperature
-  scaling,
+  scaling;
 
-- **Transfer learning** from human to mouse TCR data,
+- **Transfer learning** from human to mouse TCR data with experience
+  replay; and
 
-- **Post-hoc calibration** for reliable probability estimates.
-
-### Architecture
-
-(Relevant for models V0-V4)
-
-![](images/clipboard-1363855137.jpeg)
+- **Post-hoc calibration** via temperature scaling.
 
 ## Installation
 
@@ -86,8 +91,7 @@ devtools::install_github("amdouek/inTCRepid")
 
 ### Environment initialisation
 
-Each new R session requires you to explicitly set `RETICULATE_PYTHON` to
-the `tcr_epitope` python env:
+Each new R session requires explicit python env setup:
 
 ``` r
 Sys.setenv(RETICULATE_PYTHON = normalizePath(
@@ -95,10 +99,21 @@ Sys.setenv(RETICULATE_PYTHON = normalizePath(
             "r-miniconda/envs/tcr_epitope/python.exe"),
   winslash = "/"
 ))
-
-# Verify environment
-py_config()
+library(reticulate)
+py_config() # Verify environment
 ```
+
+### Source all scripts (needed until proper package architecture is configured)
+
+``` r
+source("R/source_all.R")
+```
+
+### Architecture
+
+(Relevant for models V0-V4)
+
+![](images/clipboard-1363855137.jpeg)
 
 ### Minimal model execution - IN PROGRESS (epitope inference not yet working)
 
@@ -126,1294 +141,300 @@ predictions <- predict_epitopes(
 )
 ```
 
-# Model version performance logs
+# Model version history
 
-### Versioning overview
+### Version summary
 
 <table style="width:97%;">
 <colgroup>
-<col style="width: 8%" />
-<col style="width: 41%" />
+<col style="width: 7%" />
+<col style="width: 36%" />
+<col style="width: 17%" />
 <col style="width: 12%" />
 <col style="width: 13%" />
-<col style="width: 10%" />
-<col style="width: 10%" />
+<col style="width: 9%" />
 </colgroup>
 <thead>
 <tr>
 <th>Version</th>
 <th>Key Changes</th>
-<th>Training Data</th>
+<th>Data sources</th>
+<th>Train samples</th>
 <th>Epitope Classes</th>
 <th>Parameters</th>
-<th>Status</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>V0</td>
 <td>Mouse-only baseline (VDJdb)</td>
+<td>VDJdb</td>
 <td>~600</td>
 <td>~30</td>
 <td>~284,000</td>
-<td>Superseded</td>
 </tr>
 <tr>
 <td>V1</td>
-<td>Implementation of transfer learning (human + mouse)<br />
-Exponential weighting by VDJdb score (4:1)</td>
+<td>Transfer learning (human + mouse);<br />
+4:1 weighting by VDJdb score</td>
+<td>VDJdb</td>
 <td>~50,000</td>
 <td>~100</td>
 <td>~284,000</td>
-<td>Superseded</td>
 </tr>
 <tr>
 <td>V2</td>
-<td>Aggressive weighting (16:1)</td>
+<td>Aggressive 16:1 score weighting</td>
+<td>VDJdb</td>
 <td>~50,000</td>
 <td>~100</td>
 <td>~284,000</td>
-<td>Superseded</td>
 </tr>
 <tr>
-<td>V2 + cal</td>
-<td>Implemented temperature calibration (T = 1.71)</td>
+<td>V3</td>
+<td>Label smoothing</td>
+<td>VDJdb</td>
 <td>~50,000</td>
 <td>~100</td>
 <td>~284,000</td>
-<td>Legacy best</td>
-</tr>
-<tr>
-<td>V3a</td>
-<td>Label smoothing (<span class="math inline"><em>ϵ</em></span> =
-0.1)</td>
-<td>~50,000</td>
-<td>~100</td>
-<td>~284,000</td>
-<td>Rejected</td>
-</tr>
-<tr>
-<td>V3b</td>
-<td>Label smoothing (<span class="math inline"><em>ϵ</em></span> =
-0.04)</td>
-<td>~50,000</td>
-<td>~100</td>
-<td>~284,000</td>
-<td>Rejected</td>
 </tr>
 <tr>
 <td>V4</td>
-<td>Integrated data from IEDB (+190K)</td>
+<td>IEDB integration</td>
+<td>VDJdb + IEDB</td>
 <td>~220,000</td>
 <td>~1,940</td>
-<td>~1,100,000</td>
-<td>Superseded</td>
+<td>~1.1M</td>
 </tr>
 <tr>
 <td>V5</td>
 <td>Increased capacity; focal loss; Atchley init</td>
+<td>VDJdb + IEDB</td>
 <td>~220,000</td>
 <td>~1,940</td>
-<td>~1,100,000</td>
-<td>Superseded</td>
+<td>~1.1M</td>
 </tr>
 <tr>
 <td>V5.1</td>
-<td>EWC</td>
+<td>EWC implementation</td>
+<td>VDJdb + IEDB</td>
 <td>~220,000</td>
 <td>~1,940</td>
-<td>~1,100,000</td>
-<td>Superseded</td>
+<td>~1.1M</td>
+</tr>
+<tr>
+<td>V6</td>
+<td>TRB V/J gene embeddings; 3% experience replay</td>
+<td>VDJdb</td>
+<td>~70,000</td>
+<td>~1,754</td>
+<td>~1.14M</td>
+</tr>
+<tr>
+<td>V7</td>
+<td>Dual chain (TRA +TRB) integration</td>
+<td>VDJdb</td>
+<td>~99,000</td>
+<td>~1,754</td>
+<td>~2.1M</td>
+</tr>
+<tr>
+<td>V8</td>
+<td>V7 + IEDB</td>
+<td>VDJdb + IEDB</td>
+<td>~164,000</td>
+<td>3,338</td>
+<td>~1.88M</td>
+</tr>
+<tr>
+<td>V8.1</td>
+<td>Curated IEDB filtering</td>
+<td>VDJdb + IEDB</td>
+<td>~69,000</td>
+<td>2,862</td>
+<td>~1.88M</td>
+</tr>
+<tr>
+<td>V9</td>
+<td>McPAS-TCR integration</td>
+<td>VDJdb + IEDB + McPAS</td>
+<td>~167,000</td>
+<td>3,380</td>
+<td>~1.88M</td>
+</tr>
+<tr>
+<td>V9.1</td>
+<td>MHC class/allele embeddings</td>
+<td>VDJdb + IEDB + McPAS</td>
+<td>~166,000</td>
+<td>3,362</td>
+<td>~2.03M</td>
+</tr>
+<tr>
+<td>V9.1.1</td>
+<td>Hyperparameter optimisation</td>
+<td>VDJdb + IEDB + McPAS</td>
+<td>~166,000</td>
+<td>3,362</td>
+<td>~2.03M</td>
+</tr>
+<tr>
+<td>V10</td>
+<td>ESM-2 PLM embeddings (mean-pooled)</td>
+<td>VDJdb + IEDB + McPAS</td>
+<td>~166,000</td>
+<td>3,362</td>
+<td>~2.5M</td>
 </tr>
 </tbody>
 </table>
 
-### Version architecture
-
-| Version | Token Embed Dim | Hidden Dim | Output Dim | Params | CDR3 encoder convs | Epitope encoder convs | Attention | Pooling (CDR3) | Pooling (epitope) | Embed init | Loss func |
-|----|----|----|----|----|----|----|----|----|----|----|----|
-| V0-V4 | 64 | 128 | 128 | ~284K | k=3,5,7 | k=3,5 | Single-head | Attn-weighted | Max+Avg | Random | Cross-entropy |
-| V5-V5.1 | 128 | 256 | 256 | ~1.1M | k=3,5,7 | k=3,5 | Single-head | Attn-weighted | Max+Avg | Atchley (first 5 dims) | Focal |
-
-### Phase 1 Performance (V0-3, VDJdb only)
-
-| Version | Training data | Score 3 Accuracy | Overall Accuracy | Top-5 Accuracy | Mouse Accuracy | ECE (raw) | ECE (cal) | Temp | Notes |
-|----|----|----|----|----|----|----|----|----|----|
-| V0 | ~600 | 89% | 89% | 99% | 89% |  |  |  | Tiny dataset, severe overfit |
-| V1 | ~50K | 72.5% |  |  | 83.9% | 0.312 |  |  | Baseline for transfer learning |
-| V2 | ~50K | 80.8% |  | ~95% | 76.3% | 0.275 |  |  |  |
-| V2 + cal | ~50K | 80.8% |  | ~95% | 76.3% |  | 0.110 | 1.71 | Best pre-IEDB |
-| V3a | ~50K | 69.8% |  |  |  | ~0 |  | ~1 | Rejected |
-| V3b | ~50K | 86.9% |  |  |  |  |  |  | Catastrophic forgetting in Phase 2 |
-
-### Phase 1 Performance (V4-5, VDJdb + IEDB)
-
-<table>
-
-<colgroup>
-
-<col style="width: 19%" />
-
-<col style="width: 9%" />
-
-<col style="width: 7%" />
-
-<col style="width: 7%" />
-
-<col style="width: 9%" />
-
-<col style="width: 7%" />
-
-<col style="width: 8%" />
-
-<col style="width: 7%" />
-
-<col style="width: 8%" />
-
-<col style="width: 6%" />
-
-<col style="width: 5%" />
-
-<col style="width: 8%" />
-
-<col style="width: 12%" />
-
-<col style="width: 7%" />
-
-</colgroup>
-
-<thead>
-
-<tr>
-
-<th>
-
-<p>
-
-Version
-</p>
-
-</th>
-
-<th>
-
-<p>
-
-Overall Acc
-</p>
-
-</th>
-
-<th>
-
-<p>
-
-Top-3 Acc
-</p>
-
-</th>
-
-<th>
-
-<p>
-
-Top-5 Acc
-</p>
-
-</th>
-
-<th>
-
-<p>
-
-Top-10 Acc
-</p>
-
-</th>
-
-<th>
-
-<p>
-
-Score 0 Acc
-</p>
-
-</th>
-
-<th>
-
-<p>
-
-Score 1 Acc
-</p>
-
-</th>
-
-<th>
-
-<p>
-
-Score 2 Acc
-</p>
-
-</th>
-
-<th>
-
-<p>
-
-Score 3 Acc
-</p>
-
-</th>
-
-<th>
-
-<p>
-
-Hum Acc
-</p>
-
-</th>
-
-<th>
-
-<p>
-
-Ms Acc
-</p>
-
-</th>
-
-<th>
-
-<p>
-
-Macro F1
-</p>
-
-</th>
-
-<th>
-
-<p>
-
-Weighted F1
-</p>
-
-</th>
-
-<th>
-
-<p>
-
-Val Loss
-</p>
-
-</th>
-
-</tr>
-
-</thead>
-
-<tbody>
-
-<tr>
-
-<td>
-
-<p>
-
-V4
-</p>
-
-<p>
-
-Tr: 154,800; Ep: 1,940; Par: ~284K
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-18.4%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-30.6%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-37.7%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-49.5%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-11.4%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-4.7%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-3.0%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-23.2%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-18.0%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-30.8%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-0.011
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-0.151
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-2.89
-</p>
-
-</td>
-
-</tr>
-
-<tr>
-
-<td>
-
-<p>
-
-V5
-</p>
-
-<p>
-
-Tr: 154,800; Ep: 1,940; Par: ~1.1M
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-20.8%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-34.3%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-41.4%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-52.5%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-22.7%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-5.5%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-3.1%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-22.8%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-20.5%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-28.9%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-0.016
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-0.190
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-0.2
-</p>
-
-</td>
-
-</tr>
-
-<tr>
-
-<td>
-
-<p>
-
-V5.1
-</p>
-
-<p>
-
-Tr: 154,800; Ep: 1,940; Par: ~1.1M
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-21.9%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-36.0%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-43.0%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-53.2%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-23.9%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-4.7%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-3.6%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-24.1%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-21.7%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-30.6%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-0.018
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-0.2
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-2.43
-</p>
-
-</td>
-
-</tr>
-
-</tbody>
-
-</table>
-
-### Phase 2 Performance (Mouse Fine-Tuning)
-
-#### Mouse test set eval
-
-<table>
-
-<colgroup>
-
-<col style="width: 8%" />
-
-<col style="width: 12%" />
-
-<col style="width: 7%" />
-
-<col style="width: 7%" />
-
-<col style="width: 9%" />
-
-<col style="width: 7%" />
-
-<col style="width: 8%" />
-
-<col style="width: 7%" />
-
-<col style="width: 8%" />
-
-<col style="width: 8%" />
-
-<col style="width: 12%" />
-
-<col style="width: 7%" />
-
-</colgroup>
-
-<thead>
-
-<tr>
-
-<th>
-
-<p>
-
-Version
-</p>
-
-</th>
-
-<th>
-
-<p>
-
-Overall Acc
-</p>
-
-</th>
-
-<th>
-
-<p>
-
-Top-3 Acc
-</p>
-
-</th>
-
-<th>
-
-<p>
-
-Top-5 Acc
-</p>
-
-</th>
-
-<th>
-
-<p>
-
-Top-10 Acc
-</p>
-
-</th>
-
-<th>
-
-<p>
-
-Score 0 Acc
-</p>
-
-</th>
-
-<th>
-
-<p>
-
-Score 1 Acc
-</p>
-
-</th>
-
-<th>
-
-<p>
-
-Score 2 Acc
-</p>
-
-</th>
-
-<th>
-
-<p>
-
-Score 3 Acc
-</p>
-
-</th>
-
-<th>
-
-<p>
-
-Macro F1
-</p>
-
-</th>
-
-<th>
-
-<p>
-
-Weighted F1
-</p>
-
-</th>
-
-<th>
-
-<p>
-
-Val Loss
-</p>
-
-</th>
-
-</tr>
-
-</thead>
-
-<tbody>
-
-<tr>
-
-<td>
-
-<p>
-
-V4
-</p>
-
-<p>
-
-Tr: 4,079
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-45.4%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-66%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-72.1%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-81.2%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-0%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-\-
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-19.2%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-52.8%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-0.117
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-0.401
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-2.02
-</p>
-
-</td>
-
-</tr>
-
-<tr>
-
-<td>
-
-<p>
-
-V5
-</p>
-
-<p>
-
-Tr: 4,079
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-46.2%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-62.6%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-71.6%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-81.7%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-0%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-\-
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-12.8%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-54.5%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-0.159
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-0.425
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-1.36
-</p>
-
-</td>
-
-</tr>
-
-<tr>
-
-<td>
-
-<p>
-
-V5.1
-</p>
-
-<p>
-
-Tr: 4,079
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-47.1%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-64.1%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-72.1%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-81.6%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-\-
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-\-
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-17.9%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-55%
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-0.169
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-0.427
-</p>
-
-</td>
-
-<td>
-
-<p>
-
-1.3
-</p>
-
-</td>
-
-</tr>
-
-</tbody>
-
-</table>
-
-#### Full test set eval (forgetting assessment)
-
-| Version | Overall Acc | Top-3 Acc | Top-5 Acc | Top-10 Acc | Score 0 Acc | Score 1 Acc | Score 2 Acc | Score 3 Acc | Hum Acc (post-P2) | Ms Acc (post-P2) | Macro F1 | Weighted F1 |
-|----|----|----|----|----|----|----|----|----|----|----|----|----|
-| V4 | 4.7% | 12.5% | 16.6% | 23.5% | 0.2% | 2.2% | 0.9% | 6.9% | ~3% | 52.8% | 0.006 | 0.049 |
-| V5 | 4.2% | 20.4% | 26.2% | 35.5% | 0.6% | 2.9% | 0.7% | 5.9% | 3.1% | 46.2% | 0.01 | 0.043 |
-| V5.1 | 5.6% | 22.5% | 30.4% | 41.0% | 2.1% | 3.3% | 0.8% | 7.5% | 4.5% | 47.1% | 0.01 | 0.065 |
-
-#### Catastrophic forgetting
-
-| Version | Hum Acc (P1) | Hum Acc (P2) | Abs Forgetting | Rel Forgetting | EWC $\lambda$ | EWC effect |
-|----|----|----|----|----|----|----|
-| V4 | 18% | ~3% | ~15% | ~83% | N/A | N/A |
-| V5 | 20.5% | 3.1% | 17.4% | 85% | N/A | N/A |
-| V5.1 | 21.7% | 4.5% | 17.2% | 79% | 1000 | Minimal |
-
-### Calibration metrics
-
-| Version | Opt Temp | ECE (pre) | ECE (post) | ECE improvement | MCE (pre) | MCE (post) | Brier (pre) | Brier (post) |
-|----|----|----|----|----|----|----|----|----|
-| V2+cal | 1.71 | 0.275 | 0.11 | 60% |  |  |  |  |
-| V4 | 1.34 | 0.646 | 0.353 | 45% | 0.868 | 0.672 | 1.461 | 1.142 |
-| V5 | 1.4926 | 0.606 | 0.3155 | 47.9% | 0.9336 | 0.9365 | 1.4136 | 1.1097 |
-| V5.1 | 1.3565 | 0.5097 | 0.2674 | 47.5% | 0.7711 | 0.4792 | 1.2674 | 1.0537 |
+### Performance comparison
+
+#### Phase 1 (Combined Human + Mouse)
+
+| Version | Accuracy | Top-5 | Top-10 | Human Acc | Mouse Acc | ECE (raw → cal) | Temp |
+|---------|----------|-------|--------|-----------|-----------|-----------------|------|
+| V0      | 89%      | 99%   | \-     | \-        | 89%       | \-              | \-   |
+| V1      | \-       | \-    | \-     | \-        | 83.9%     | 0.312           |      |
+| V2      | \-       | ~95%  | \-     | \-        | 76.3%     | 0.275→0.110     | 1.71 |
+| V3      | \-       | \-    | \-     | \-        | \-        | \-              | \-   |
+| V4      | 18.4%    | 37.7% | 49.5%  | 18%       | 30.8%     | 0.646→0.353     | 1.34 |
+| V5      | 20.8%    | 41.4% | 52.5%  | 20.5%     | 28.9%     | 0.606→0.316     | 1.49 |
+| V5.1    | 21.9%    | 43.0% | 53.2%  | 21.7%     | 30.6%     | 0.510→0.267     | 1.36 |
+| V6      | 46.2%    | 58.4% | 63.7%  | 46.8%     | 31.6%     | 0.072           | 1.20 |
+| V7      | 56.5%    | 71.9% | 76.2%  | 56.9%     | 46.6%     |                 |      |
+| V8      | 39.1%    | 55.9% | 62.7%  |           |           | 0.044→0.061     | 1.06 |
+| V8.1    | 23.5%    | 33.7% | 49.8%  |           |           | 0.056→0.050     | 1.11 |
+| V9      | 33.9%    | 49.5% | 57.0%  |           |           | 0.069→0.032     | 1.18 |
+| V9.1    | 32.1%    | 46.7% | 54.1%  |           |           | 0.020→0.007     | 1.49 |
+| V9.1.1  | 34.1%    | 49.7% | 57.0%  |           |           | 0.039→0.008     | 1.64 |
+| V10     | 33.2%    | 48.2% | 54.8%  |           |           |                 |      |
+
+#### Phase 2 (Mouse Fine-Tuning)
+
+| Version | Mouse Acc | Mouse Top-5 | Mouse Top-10 | Human Retention | Forgetting rate |
+|---------|-----------|-------------|--------------|-----------------|-----------------|
+| V4      | 45.4%     |             | 81.2%        | ~3%             | ~83%            |
+| V5      | 46.2%     |             | 81.7%        | 3.1%            | ~85%            |
+| V5.1    | 47.1%     |             | 81.6%        | 4.5%            | ~79%            |
+| V6      | 46.2%     |             | 63.7%        | 46.2%           | 0%              |
+| V7      | 51.9%     |             |              | 52.1%           | 4.8%            |
+| V8      | 62.6%     |             | 79.8%        |                 |                 |
+| V8.1    | 48.4%     |             | 59.3%        |                 |                 |
+| V9      | 50.1%     |             | 67.6%        |                 |                 |
+| V9.1    | 47.3%     |             | 62.3%        |                 |                 |
+| V9.1.1  | 49.6%     |             | 65.3%        |                 |                 |
+| V10     | 48.9%     | 63.2%       |              | ~5.4%           | 5.4%            |
+
+#### Pairing effect (V7+)
+
+| Version | Paired (TRA + TRB) | Unpaired (TRB only) | Delta  |
+|---------|--------------------|---------------------|--------|
+| V7      | 66.6%              | 32.5%               | +34.1% |
+| V8      |                    |                     |        |
+| V9.1.1  |                    |                     |        |
+| V10     | 52.0%              | 24.6%               | +27.4% |
+
+### Architecture summary
+
+| Component | V0-V4 | V5-6 | V7-V9.1.1 | V10 |
+|----|----|----|----|----|
+| Token embed dim | 64 | 128 | 128 | ESM-2 (640→128) |
+| Hidden dim | 128 | 256 | 256 | 256 |
+| Output dim | 128 | 256 | 256 | 256 |
+| CDR3 encoder | CNN (k=3,5,7) | CNN (k=3,5,7) | CNN (k=3,5,7) | MLP |
+| CDR3 pooling | Attention | Attention | Attention | Mean (ESM) |
+| Epitope encoder | CNN (k=3,5,7) | CNN (k=3,5,7) | CNN (k=3,5,7) | MLP |
+| TRA chains | ✗ | ✗ | ✓ | ✓ |
+| V/J embeddings | ✗ | V6: TRB-only | TRA + TRB | TRA+TRB |
+| MHC embeddings | ✗ | ✗ | V9.1+ | ✓ |
+| Embed init | Random | Atchley | Atchley | ESM-2 (frozen) |
+| Loss function | Cross-entropy | Focal (gamma = 2) | Focal (gamma = 2) | Focal (gamma = 2) |
 
 ## Model changelog
 
-#### V0
+#### V10
 
-- Baseline (VDJdb mouse-only), tiny dataset
+- Integrated ESM-2 PLM (esm2_t30_150M_UR50D, 640-dim)
 
-- Severe overfitting, not generalisable
+- Pre-computed embeddings for CDR3a, CDR3b, and epitope sequences (HDF5
+  cache)
 
-#### V1
+- Replaced CNN encoders with MLP projections for mean-pooled ESM
+  embeddings
 
-- Implemented transfer learning (pretraining on human VDJdb data, then
-  fine-tuned on mouse VDJdb)
+  - No improvement over V9.1.1; mean-pooling may lose positional info
+    critical for short CDR3 sequences
 
-- Implemented exponential (4:1) score weighting to increase effect of
-  TCR-epitope pairs with experimental validation (VDJdb score 3).
+#### V9.1/V9.1.1
 
-#### V2
+- Added MHC class (4 tokens) and allele (~116 tokens) embeddings
 
-- Made score weighting more aggressive (16:1), leading to +8.3% Score 3
-  accuracy compared to V1
+- Epitope-MHC fusion layer captures presentation context
 
-#### V2+cal
+- **V9.1.1** - hyperparameter optimisation for MHC-integrated
+  architecture
 
-- Implemented post-hoc temperature scaling. Optimal temp for V2 was
-  1.71, improving ECE from 0.275 to 0.110
+  - Current best-performing learned-embedded model
 
-#### V3a/b
+#### V9
 
-- Implemented label smoothing with $\epsilon = 0.1$ (a) and
-  $\epsilon = 0.04$ (b).
+- Integrated McPAS-TCR data (+~3K entries after deduplication)
 
-- Caused accuracy drop and catastrophic forgetting in phase 2.
+#### V8/V8.1
+
+- Added IEDB to V7 dual-chain architecture, and curated IEDB more
+  strictly
+
+#### V7
+
+- Dual-chain TCR encoding (CDR3$\alpha$ + CDR3$\beta$)
+
+- TRA V/J gene vocabularies (187 V, 78 J)
+
+- Chain fusion options (concat, gated, attention)
+
+- Paired chains predicted far better than single-chain
+
+#### V6
+
+- TRB V/J germline gene embeddings (115 V, 35 J genes)
+
+- 3% stratified experience replay to mitigate forgetting
+
+#### V5/V5.1
+
+- 4x parameter increase (284K → 1.1M)
+
+- Focal loss (default $\gamma$ =2.0) for class imbalance
+
+- Atchley factor embedding initialisation
+
+- V5.1: EWC regularisation (though had minimal effect)
 
 #### V4
 
-- Integrated data from IEDB (+190K samples, +1800 epitope classes)
+- Integrated IEDB (+190K samples, +1,800 epitope classes)
 
-- Accuracy dropped due to increased task difficulty.
+- Performance drop due to increased task difficulty
 
-#### V5
+#### V0-V3
 
-- Increased capacity from 284K to 1.1M
+- Baseline development on VDJdb
 
-- Implemented Atchley factor embedding initialisation
+- Implemented human → mouse transfer learning
 
-- Replaced cross-entropy with focal loss (default $\gamma = 2.0$)
+- Score-based sample weighting (16:1 for high-confidence entries)
 
-- Parameterised label smoothing for future testing iterations
+# Technical stack
 
-- Added hooks for EWC regularisation
+- **Language:** R with Python via reticulate
 
-- Added optional BLOSUM regularisation
+- **Deep learning:** PyTorch 2.5.1 (CUDA 12.1)
 
-- Implemented PLM embedding hooks for future ESM-2/ProtBERT integration
+- **PLM:** HuggingFace transformers (ESM-2)
 
-#### V5.1
+- **Python env:** Conda (r-miniconda/envs/tcr_epitope)
 
-- Implemented EWC for state transfer between P1 and P2 trainers
+- **Hardware:** NVIDIA RTX 2000 Ada (8 GB VRAM)
