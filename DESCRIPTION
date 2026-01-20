@@ -1,0 +1,23 @@
+Package: inTCRepid
+Title: CNN-based dual encoder model with contrastive learning for TCR-epitope prediction
+Version: 0.0.0.9000
+Authors@R: person("Alon", "Douek", , "Alon.Douek@monash.com", role = c("aut", "cre"), comment = c(ORCID = "0000-0001-5739-3835"))
+Description: A deep learning framework for predicting epitope sequences from T-cell receptor (TCR) CDR3 sequences. Implements a dual-encoder architecture with convolutional neural networks (CNNs), attention-based pooling, and contrastive learning for TCR-epitope binding prediction. Supports transfer learning from large human datasets (VDJdb, IEDB) to smaller mouse datasets, with post-hoc temperature scaling for probability calibration.
+License: GPL (>= 3)
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+URL: https://github.com/amdouek/inTCRepid
+BugReports: https://github.com/amdouek/inTCRepid/issues
+Depends: R (>= 4.2.0)
+Imports: reticulate, tidyverse, dplyr, tidyr, stringr, readr, ggplot2, data.table, caret, pROC, Matrix
+Suggests: uwot, Seurat, testthat, knitr, markdown, patchwork, viridis
+Config/reticulate:
+    list(packages = list(
+            list(package = "torch", pip = TRUE),
+            list(package = "numpy", pip = TRUE)))
+SystemRequirements:
+    Python (>= 3.8),
+    PyTorch (>= 1.12),
+    CUDA (>= 11.0, optional but recommended for GPU acceleration)
+VignetteBuilder: knitr
